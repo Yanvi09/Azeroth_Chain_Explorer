@@ -1,15 +1,12 @@
-﻿# Use a lightweight Python image
-FROM python:3.9-slim
+﻿FROM python:3.9-slim
 
-# Set the working directory inside the container
 WORKDIR /app
 
-# Copy and install dependencies first (to optimize Docker caching)
-COPY requirements.txt .  
+# 🛠️ Fix: Copy requirements.txt from parent folder
+COPY ../requirements.txt .  
 RUN pip install --no-cache-dir -r requirements.txt  
 
-# Copy all project files into the container
-COPY . .  
+# 🛠️ Fix: Copy entire project (move up one level)
+COPY .. .  
 
-# Start the Flask app
-CMD ["python", "blockchain.py"]
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "blockchain:app"]
