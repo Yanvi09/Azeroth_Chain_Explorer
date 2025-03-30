@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Azeroth Chain Explorer</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #7d5a9b;
+            --secondary: #b48dd3;
+            --light: #f5f0fa;
+            --dark: #4a3a5a;
+            --success: #5a9b7d;
+            --error: #d85a5a;
+            --gold: #c5a344;
+        }
+        
+        body { 
+            font-family: 'Poppins', sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: url('https://wow.zamimg.com/uploads/screenshots/normal/1059856.jpg') no-repeat center center fixed;
+            background-size: cover;
+            color: var(--dark);
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 30px;
+            background-color: rgba(255, 245, 250, 0.93);
+            border: 1px solid #e0c5e0;
+            box-shadow: 0 0 25px rgba(200, 160, 200, 0.3);
+            border-radius: 12px;
+            backdrop-filter: blur(5px);
+        }
+        
+        h1, h2, h3 {
+            color: var(--primary);
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+        
+        h1 {
+            text-align: center;
+            font-size: 2.4em;
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+            position: relative;
+        }
+        
+        h1:after {
+            content: "";
+            position: absolute;
+            bottom: 0;
+            left: 25%;
+            width: 50%;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--secondary), transparent);
+        }
+        
+        .dashboard { 
+            display: grid; 
+            grid-template-columns: 1fr 1fr; 
+            gap: 25px; 
+        }
+        
+        .panel { 
+            background: rgba(255, 250, 253, 0.95);
+            border: 1px solid #e0c5e0; 
+            padding: 20px; 
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(180, 141, 211, 0.1);
+        }
+        
+        .block { 
+            background: rgba(255, 252, 255, 0.98); 
+            padding: 15px; 
+            margin: 8px 0; 
+            border-left: 4px solid var(--success);
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+        
+        .transaction { 
+            background: rgba(255, 253, 255, 0.98); 
+            padding: 12px; 
+            margin: 8px 0; 
+            border-left: 3px solid var(--secondary);
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+        
+        #network-graph { 
+            width: 100%; 
+            height: 400px; 
+            background: rgba(255, 255, 255, 0.95); 
+            border: 1px solid #e0c5e0;
+            border-radius: 8px;
+            object-fit: contain;
+        }
+        
+        button {
+            background: linear-gradient(135deg, var(--secondary), var(--primary));
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            cursor: pointer;
+            font-weight: 500;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            margin: 8px 5px;
+            font-size: 15px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 8px rgba(180, 141, 211, 0.3);
+        }
+        
+        button:hover { 
+            background: linear-gradient(135deg, var(--primary), #6a4d85);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(180, 141, 211, 0.4);
+        }
+        
+        button:disabled {
+            background: #cccccc;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        button i {
+            margin-right: 8px;
+            font-size: 16px;
+        }
+        
+        .wallet-display {
+            position: relative;
+        }
+        
+        .wallet-qr { 
+            float: right; 
+            margin-left: 20px;
+            border: 1px solid #e0c5e0;
+            padding: 8px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        
+        textarea, input, select {
+            background: rgba(255, 255, 255, 0.95);
+            border: 1px solid #e0c5e0;
+            color: var(--dark);
+            padding: 12px;
+            border-radius: 8px;
+            width: 100%;
+            margin: 10px 0;
+            font-family: 'Poppins', sans-serif;
+            transition: all 0.3s;
+        }
+        
+        textarea:focus, input:focus, select:focus {
+            outline: none;
+            border-color: var(--secondary);
+            box-shadow: 0 0 0 2px rgba(180, 141, 211, 0.2);
+        }
+        
+        textarea {
+            height: 120px;
+            resize: vertical;
+        }
+        
+        .loading {
+            display: inline-block;
+            animation: pulse 1.5s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 0.6; }
+            50% { opacity: 1; }
+            100% { opacity: 0.6; }
+        }
+        
+        .faction-icon {
+            width: 24px;
+            height: 24px;
+            vertical-align: middle;
+            margin-right: 10px;
+            filter: drop-shadow(0 1px 2px rgba(0,0,0,0.1));
+        }
+        
+        .alliance { color: #5a8fd8; }
+        .horde { color: #d85a5a; }
+        
+        .gold-text {
+            color: var(--gold);
+            font-weight: 600;
+        }
+        
+        .toast {
+            position: fixed;
+            bottom: 25px;
+            right: 25px;
+            padding: 16px 24px;
+            background: var(--primary);
+            color: white;
+            border-radius: 8px;
+            z-index: 1000;
+            box-shadow: 0 6px 16px rgba(125, 90, 155, 0.3);
+            display: flex;
+            align-items: center;
+            transform: translateY(30px);
+            opacity: 0;
+            animation: slideIn 0.3s forwards;
+        }
+        
+        .toast.error {
+            background: var(--error);
+        }
+        
+        .toast.success {
+            background: var(--success);
+        }
+        
+        @keyframes slideIn {
+            to { transform: translateY(0); opacity: 1; }
+        }
+        
+        .toast i {
+            margin-right: 10px;
+            font-size: 18px;
+        }
+        
+        .header-icon {
+            height: 40px;
+            margin-right: 15px;
+            vertical-align: middle;
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+        }
+        
+        .tagline {
+            text-align: center;
+            font-style: italic;
+            color: var(--primary);
+            margin-bottom: 30px;
+            font-weight: 300;
+            letter-spacing: 0.5px;
+        }
+        
+        details {
+            margin-top: 10px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 8px 12px;
+            border-radius: 6px;
+        }
+        
+        summary {
+            cursor: pointer;
+            font-weight: 500;
+        }
+        
+        .send-form {
+            background: rgba(255, 255, 255, 0.9);
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+        }
+        
+        @media (max-width: 768px) {
+            .dashboard {
+                grid-template-columns: 1fr;
+            }
+            
+            .container {
+                padding: 15px;
+            }
+        }
+    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <h1>
+            <img src="https://wow.zamimg.com/images/wow/icons/large/inv_misc_book_11.jpg" class="header-icon">
+            Azeroth Chain Explorer
+        </h1>
+        <p class="tagline">"Empowering transactions with arcane precision"</p>
+        
+        <div class="dashboard">
+            <div class="panel">
+                <h2><img src="https://wow.zamimg.com/images/wow/icons/large/inv_misc_map07.jpg" class="faction-icon"> Network Overview</h2>
+                <img id="network-graph" src="" alt="Network Visualization">
+                
+                <h2><img src="https://wow.zamimg.com/images/wow/icons/large/inv_misc_coin_01.jpg" class="faction-icon"> Digital Wallet</h2>
+                <button onclick="createWallet()"><i class="fas fa-wallet"></i> Create Wallet</button>
+                <button id="send-funds-btn" onclick="showSendGold()" disabled><i class="fas fa-paper-plane"></i> Send Funds</button>
+                <div id="wallet-info"></div>
+                
+                <h2><img src="https://wow.zamimg.com/images/wow/icons/large/inv_scroll_11.jpg" class="faction-icon"> Smart Contracts</h2>
+                <textarea id="contract-code" placeholder="Enter contract terms..."></textarea>
+                <button onclick="createContract()"><i class="fas fa-file-contract"></i> Create Contract</button>
+            </div>
+            
+            <div class="panel">
+                <h2><img src="https://wow.zamimg.com/images/wow/icons/large/inv_pick_05.jpg" class="faction-icon"> Mining Console</h2>
+                <button onclick="mineBlock()"><i class="fas fa-hammer"></i> Mine Block</button>
+                <div id="mining-status"></div>
+                <div id="blockchain"></div>
+                
+                <h2><img src="https://wow.zamimg.com/images/wow/icons/large/inv_misc_book_06.jpg" class="faction-icon"> Transaction Ledger</h2>
+                <input type="text" id="wallet-address" placeholder="Enter wallet address">
+                <button onclick="getHistory()"><i class="fas fa-history"></i> View History</button>
+                <div id="history"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const socket = io();
+        let currentWallet = null;
+        const INITIAL_BALANCE = 100;
+        
+        // Initialize with mock data for testing
+        const mockBlockchain = {
+            chain: [
+                {
+                    block_number: 1,
+                    previous_hash: "0000000000000000000000000000000000000000",
+                    transactions: [],
+                    timestamp: Date.now() / 1000,
+                    miner: "Genesis Miner",
+                    reward: 0
+                }
+            ]
+        };
+        
+        // Real-time updates
+        socket.on('transaction_update', function(data) {
+            updateTransactions(data.transactions);
+            showToast("Transaction confirmed", "success", "fa-check-circle");
+        });
+        
+        socket.on('block_mined', function(data) {
+            addBlockToUI(data.block);
+            showToast(`Block mined: ${data.block.reward} gold earned`, "success", "fa-coins");
+            if (currentWallet) {
+                updateWalletBalance(data.block.reward);
+            }
+        });
+        
+        socket.on('chain_update', function(data) {
+            renderBlockchain(data.chain);
+        });
+        
+        socket.on('network_update', function(data) {
+            document.getElementById('network-graph').src = `data:image/png;base64,${data.graph}`;
+        });
+        
+        // Connect to backend or use mock data
+        function initialize() {
+            fetch('/chain')
+                .then(response => {
+                    if (!response.ok) throw new Error('Network error');
+                    return response.json();
+                })
+                .then(data => renderBlockchain(data.chain))
+                .catch(error => {
+                    console.error('Using mock data:', error);
+                    renderBlockchain(mockBlockchain.chain);
+                    showToast("Connected to mock data", "success", "fa-info-circle");
+                });
+        }
+        
+        function showToast(message, type, icon) {
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.innerHTML = `<i class="fas ${icon}"></i> ${message}`;
+            
+            document.body.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                setTimeout(() => document.body.removeChild(toast), 500);
+            }, 3000);
+        }
+        
+        function updateWalletBalance(reward) {
+            const balanceElement = document.querySelector('#wallet-info .gold-text');
+            if (balanceElement) {
+                const currentBalance = parseInt(balanceElement.textContent) || INITIAL_BALANCE;
+                balanceElement.textContent = `${currentBalance + reward} gold`;
+            }
+        }
+        
+        // Wallet functions
+        function createWallet() {
+            const miningStatus = document.getElementById('mining-status');
+            miningStatus.innerHTML = `<i class="fas fa-cog fa-spin"></i> Generating wallet...`;
+            
+            // Mock wallet creation if backend fails
+            const mockWallet = {
+                wallet_address: "0x" + Math.random().toString(16).substring(2, 42),
+                private_key: "0x" + Math.random().toString(16).substring(2, 66),
+                qr_code: `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=0x${Math.random().toString(16).substring(2, 42)}`
+            };
+            
+            fetch('/wallet/new')
+                .then(response => {
+                    if (!response.ok) throw new Error('Network error');
+                    return response.json();
+                })
+                .then(data => {
+                    currentWallet = data;
+                    displayWallet(data);
+                    document.getElementById('send-funds-btn').disabled = false;
+                })
+                .catch(error => {
+                    console.error('Using mock wallet:', error);
+                    currentWallet = mockWallet;
+                    displayWallet(mockWallet);
+                    document.getElementById('send-funds-btn').disabled = false;
+                    showToast("Mock wallet created", "success", "fa-wallet");
+                });
+        }
+        
+        function displayWallet(walletData) {
+            const faction = Math.random() > 0.5 ? 'alliance' : 'horde';
+            const factionIcon = faction === 'alliance' ? 
+                'https://wow.zamimg.com/images/wow/icons/large/inv_bannerpvp_02.jpg' : 
+                'https://wow.zamimg.com/images/wow/icons/large/inv_bannerpvp_01.jpg';
+            
+            const walletInfo = `
+                <div class="wallet-display">
+                    <h3 class="${faction}">
+                        <img src="${factionIcon}" class="faction-icon"> 
+                        ${faction === 'alliance' ? 'Alliance' : 'Horde'} Wallet
+                    </h3>
+                    <div class="wallet-qr">
+                        <img src="${walletData.qr_code}" alt="QR Code">
+                        <p style="text-align: center; color: var(--dark); margin: 5px 0 0;">Scan to receive</p>
+                    </div>
+                    <p><strong>Address:</strong> ${walletData.wallet_address}</p>
+                    <p><strong>Balance:</strong> <span class="gold-text">${INITIAL_BALANCE} gold</span></p>
+                    <details>
+                        <summary><small>Private Key</small></summary>
+                        <small style="word-break: break-all;">${walletData.private_key}</small>
+                    </details>
+                </div>
+            `;
+            document.getElementById('wallet-info').innerHTML = walletInfo;
+            document.getElementById('mining-status').innerHTML = "";
+            showToast("Wallet created successfully", "success", "fa-wallet");
+        }
+        
+        function showSendGold() {
+            if (!currentWallet) {
+                showToast("Please create a wallet first", "error", "fa-exclamation-circle");
+                return;
+            }
+            
+            const walletInfo = document.getElementById('wallet-info');
+            if (walletInfo.querySelector('.send-form')) return;
+            
+            walletInfo.innerHTML += `
+                <div class="send-form">
+                    <h3><i class="fas fa-paper-plane"></i> Send Funds</h3>
+                    <input type="text" id="recipient-address" placeholder="Recipient's wallet address">
+                    <input type="number" id="send-amount" placeholder="Amount to send" min="0.1" step="0.1">
+                    <button onclick="sendGold()"><i class="fas fa-check"></i> Confirm Transfer</button>
+                </div>
+            `;
+        }
+        
+        function sendGold() {
+            const recipient = document.getElementById('recipient-address').value.trim();
+            const amount = parseFloat(document.getElementById('send-amount').value);
+            
+            if (!recipient || isNaN(amount)) {
+                showToast("Please complete all fields", "error", "fa-exclamation-circle");
+                return;
+            }
+            
+            if (amount <= 0) {
+                showToast("Amount must be positive", "error", "fa-exclamation-circle");
+                return;
+            }
+            
+            // Mock transaction if backend fails
+            const mockTransaction = {
+                txid: "0x" + Math.random().toString(16).substring(2, 66),
+                sender_address: currentWallet.wallet_address,
+                recipient_address: recipient,
+                value: amount,
+                timestamp: Date.now() / 1000,
+                status: "confirmed"
+            };
+            
+            fetch('/transactions/new', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    sender_address: currentWallet.wallet_address,
+                    recipient_address: recipient,
+                    value: amount,
+                    signature: "signed_" + Math.random().toString(36).substring(2)
+                })
+            })
+            .then(response => {
+                if (!response.ok) throw new Error('Transaction failed');
+                return response.json();
+            })
+            .then(data => {
+                completeTransaction(amount, data);
+            })
+            .catch(error => {
+                console.error('Using mock transaction:', error);
+                completeTransaction(amount, mockTransaction);
+                showToast("Mock transaction sent", "success", "fa-paper-plane");
+            });
+        }
+        
+        function completeTransaction(amount, txData) {
+            showToast(`Sent ${amount} gold successfully`, "success", "fa-check-circle");
+            
+            // Update balance display
+            const balanceElement = document.querySelector('#wallet-info .gold-text');
+            if (balanceElement) {
+                const currentBalance = parseFloat(balanceElement.textContent) || INITIAL_BALANCE;
+                balanceElement.textContent = `${(currentBalance - amount).toFixed(2)} gold`;
+            }
+            
+            // Add to history
+            if (document.getElementById('wallet-address').value === currentWallet.wallet_address) {
+                addTransactionToHistory(txData);
+            }
+        }
+        
+        function createContract() {
+            if (!currentWallet) {
+                showToast("Please create a wallet first", "error", "fa-exclamation-circle");
+                return;
+            }
+            
+            const code = document.getElementById('contract-code').value.trim();
+            if (!code) {
+                showToast("Contract cannot be empty", "error", "fa-exclamation-circle");
+                return;
+            }
+            
+            // Mock contract if backend fails
+            const mockContract = {
+                contract_id: "contract_" + Math.random().toString(36).substring(2, 10),
+                code: code,
+                owner: currentWallet.wallet_address,
+                timestamp: Date.now() / 1000
+            };
+            
+            fetch('/contract/create', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    code: code,
+                    owner_address: currentWallet.wallet_address,
+                    signature: "signed_" + Math.random().toString(36).substring(2)
+                })
+            })
+            .then(response => {
+                if (!response.ok) throw new Error('Contract creation failed');
+                return response.json();
+            })
+            .then(data => {
+                showToast("Contract created successfully", "success", "fa-file-contract");
+                document.getElementById('contract-code').value = '';
+            })
+            .catch(error => {
+                console.error('Using mock contract:', error);
+                showToast("Mock contract created", "success", "fa-file-contract");
+                document.getElementById('contract-code').value = '';
+            });
+        }
+        
+        function mineBlock() {
+            const miningStatus = document.getElementById('mining-status');
+            miningStatus.innerHTML = `<i class="fas fa-cog fa-spin"></i> Mining in progress...`;
+            
+            // Mock block if backend fails
+            const mockBlock = {
+                block_number: mockBlockchain.chain.length + 1,
+                previous_hash: "0000000000000000000000000000000000000000",
+                transactions: [],
+                timestamp: Date.now() / 1000,
+                miner: currentWallet ? currentWallet.wallet_address.substring(0, 16) : "Mock Miner",
+                reward: 5
+            };
+            
+            fetch('/mine')
+                .then(response => {
+                    if (!response.ok) throw new Error('Mining failed');
+                    return response.json();
+                })
+                .then(data => {
+                    miningStatus.innerHTML = `
+                        <i class="fas fa-check-circle"></i> Block #${data.block_number} mined
+                        <br><small>${data.transactions.length} transactions processed</small>
+                    `;
+                    mockBlockchain.chain.push(data);
+                })
+                .catch(error => {
+                    console.error('Using mock block:', error);
+                    miningStatus.innerHTML = `
+                        <i class="fas fa-check-circle"></i> Mock Block #${mockBlock.block_number} mined
+                    `;
+                    mockBlockchain.chain.push(mockBlock);
+                    if (currentWallet) {
+                        updateWalletBalance(mockBlock.reward);
+                    }
+                });
+        }
+        
+        function getHistory() {
+            const address = document.getElementById('wallet-address').value.trim();
+            if (!address) {
+                showToast("Please enter a wallet address", "error", "fa-exclamation-circle");
+                return;
+            }
+            
+            const historyDiv = document.getElementById('history');
+            historyDiv.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Loading transaction history...`;
+            
+            // Mock history if backend fails
+            const mockHistory = {
+                transactions: [
+                    {
+                        txid: "0x" + Math.random().toString(16).substring(2, 66),
+                        sender_address: "0x" + Math.random().toString(16).substring(2, 42),
+                        recipient_address: address,
+                        value: (Math.random() * 50 + 1).toFixed(2),
+                        timestamp: Date.now() / 1000 - Math.random() * 86400
+                    },
+                    {
+                        txid: "0x" + Math.random().toString(16).substring(2, 66),
+                        sender_address: address,
+                        recipient_address: "0x" + Math.random().toString(16).substring(2, 42),
+                        value: (Math.random() * 20 + 1).toFixed(2),
+                        timestamp: Date.now() / 1000 - Math.random() * 172800
+                    }
+                ]
+            };
+            
+            fetch(`/wallet/history/${address}`)
+                .then(response => {
+                    if (!response.ok) throw new Error('Failed to fetch history');
+                    return response.json();
+                })
+                .then(data => {
+                    displayHistory(data.transactions);
+                })
+                .catch(error => {
+                    console.error('Using mock history:', error);
+                    displayHistory(mockHistory.transactions);
+                });
+        }
+        
+        function displayHistory(transactions) {
+            let html = '<h3><i class="fas fa-history"></i> Transaction History</h3>';
+            if (!transactions || transactions.length === 0) {
+                html += '<p><em>No transactions found</em></p>';
+            } else {
+                transactions.forEach(tx => {
+                    const isIncoming = tx.recipient_address === document.getElementById('wallet-address').value;
+                    const factionClass = isIncoming ? 'alliance' : 'horde';
+                    const icon = isIncoming ? 'fa-arrow-down' : 'fa-arrow-up';
+                    
+                    html += `
+                        <div class="transaction ${factionClass}">
+                            <p><strong><i class="fas ${icon}"></i> ${isIncoming ? 'Received from' : 'Sent to'}:</strong> 
+                            ${isIncoming ? tx.sender_address : tx.recipient_address}</p>
+                            <p><strong><i class="fas fa-coins"></i> Amount:</strong> <span class="gold-text">${tx.value} gold</span></p>
+                            <p><em><i class="far fa-clock"></i> ${new Date(tx.timestamp * 1000).toLocaleString()}</em></p>
+                        </div>
+                    `;
+                });
+            }
+            document.getElementById('history').innerHTML = html;
+        }
+        
+        function addTransactionToHistory(tx) {
+            const historyDiv = document.getElementById('history');
+            if (historyDiv && document.getElementById('wallet-address').value === currentWallet.wallet_address) {
+                const isIncoming = tx.recipient_address === currentWallet.wallet_address;
+                const factionClass = isIncoming ? 'alliance' : 'horde';
+                const icon = isIncoming ? 'fa-arrow-down' : 'fa-arrow-up';
+                
+                const newTx = `
+                    <div class="transaction ${factionClass}">
+                        <p><strong><i class="fas ${icon}"></i> ${isIncoming ? 'Received from' : 'Sent to'}:</strong> 
+                        ${isIncoming ? tx.sender_address : tx.recipient_address}</p>
+                        <p><strong><i class="fas fa-coins"></i> Amount:</strong> <span class="gold-text">${tx.value} gold</span></p>
+                        <p><em><i class="far fa-clock"></i> ${new Date().toLocaleString()}</em></p>
+                    </div>
+                `;
+                
+                if (historyDiv.innerHTML.includes('No transactions found')) {
+                    historyDiv.innerHTML = '<h3><i class="fas fa-history"></i> Transaction History</h3>' + newTx;
+                } else {
+                    historyDiv.innerHTML = historyDiv.innerHTML.replace('<h3>', '<h3>') + newTx;
+                }
+            }
+        }
+        
+        function renderBlockchain(chain) {
+            const blockchainDiv = document.getElementById('blockchain');
+            blockchainDiv.innerHTML = '<h3><i class="fas fa-link"></i> Blockchain</h3>';
+            
+            if (!chain || chain.length === 0) {
+                blockchainDiv.innerHTML += '<p><em>No blocks in the chain yet</em></p>';
+                return;
+            }
+            
+            // Show only the last 5 blocks
+            const recentBlocks = chain.slice(-5).reverse();
+            
+            recentBlocks.forEach(block => {
+                const blockDiv = document.createElement('div');
+                blockDiv.className = 'block';
+                blockDiv.innerHTML = `
+                    <p><strong><i class="fas fa-cube"></i> Block #${block.block_number}</strong></p>
+                    <p><small>ID: ${block.previous_hash.substring(0, 20)}...</small></p>
+                    <p><i class="fas fa-exchange-alt"></i> ${block.transactions.length} transactions</p>
+                    <p><i class="fas fa-user"></i> Miner: ${block.miner || 'System'}</p>
+                    <p><em><i class="far fa-clock"></i> ${new Date(block.timestamp * 1000).toLocaleString()}</em></p>
+                `;
+                blockchainDiv.appendChild(blockDiv);
+            });
+        }
+        
+        function updateTransactions(transactions) {
+            // This would update the transaction display if needed
+            console.log("New transactions:", transactions);
+        }
+        
+        function addBlockToUI(block) {
+            // This would add the new block to the UI
+            console.log("New block mined:", block);
+            renderBlockchain([...mockBlockchain.chain, block]);
+        }
+        
+        // Initialize on load
+        document.addEventListener('DOMContentLoaded', function() {
+            initialize();
+            
+            // Mock network graph
+            document.getElementById('network-graph').src = 
+                'https://via.placeholder.com/800x400.png?text=Network+Visualization';
+        });
+    </script>
+</body>
+</html>
