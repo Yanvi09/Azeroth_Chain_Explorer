@@ -2,11 +2,14 @@
 
 WORKDIR /app
 
-# 🛠️ Fix: Copy requirements.txt from parent folder
-COPY ../requirements.txt .  
-RUN pip install --no-cache-dir -r requirements.txt  
+# Copy requirements.txt first (ensures better caching)
+COPY requirements.txt .
 
-# 🛠️ Fix: Copy entire project (move up one level)
-COPY .. .  
+# Install dependencies
+RUN pip install --no-cache-dir -r requirements.txt
 
+# Copy the rest of the application files
+COPY . .
+
+# Start the application using Gunicorn
 CMD ["gunicorn", "--bind", "0.0.0.0:5000", "blockchain:app"]
