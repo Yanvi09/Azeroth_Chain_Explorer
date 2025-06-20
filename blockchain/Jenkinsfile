@@ -1,0 +1,29 @@
+pipeline {
+    agent any
+
+    stages {
+        stage('Build Docker Image') {
+            steps {
+                script {
+                    sh 'docker-compose build'
+                }
+            }
+        }
+
+        stage('Deploy Docker Container') {
+            steps {
+                script {
+                    sh 'docker-compose up -d'
+                }
+            }
+        }
+
+        stage('Clean Up') {
+            steps {
+                script {
+                    sh 'docker-compose down'
+                }
+            }
+        }
+    }
+}

@@ -378,12 +378,6 @@ if __name__ == '__main__':
     print(f"Starting blockchain node: {blockchain.node_id}")
     print(f"Initial mining reward: {blockchain.get_current_mining_reward()} coins")
     print(f"Initial difficulty: {blockchain.calculate_difficulty()} leading zeros")
-    if __name__ == '__main__':
-     socketio.run(
-        app,
-        host='0.0.0.0',  # ← MUST be 0.0.0.0 (not 127.0.0.1)
-        port=5000,
-        debug=True,
-        allow_unsafe_werkzeug=True,
-        use_reloader=False  # ← Prevents double ports in Docker
-    )
+   
+app = Flask(__name__)
+socketio = SocketIO(app)
