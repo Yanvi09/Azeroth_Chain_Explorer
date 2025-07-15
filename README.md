@@ -33,6 +33,7 @@ To **simplify blockchain concepts** for beginners through an interactive, real-t
 ---
 
 ## 📂 Directory Structure
+'''
 Azeroth_Chain_Explorer/
 ├── blockchain/
 │ ├── blockchain.py # Core blockchain and API logic
@@ -44,6 +45,7 @@ Azeroth_Chain_Explorer/
 ├── .git/ # Git repo
 ├── .venv/ # Python virtual environment (optional)
 └── README.md # Project documentation
+'''
 
 
 ---
