@@ -65,3 +65,8 @@ docker-compose up --build
 # 3. Open the app
 Visit http://localhost:5000 in your browser
 
+👩‍💻 Author
+Anvi Yadav – Backend & AI Developer  
+📍 LPU | GitHub: [@Yanvi09](https://github.com/Yanvi09)
+
+
