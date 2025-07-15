@@ -33,19 +33,19 @@ To **simplify blockchain concepts** for beginners through an interactive, real-t
 ---
 
 ## 📂 Directory Structure
-'''
+```
 Azeroth_Chain_Explorer/
 ├── blockchain/
-│ ├── blockchain.py # Core blockchain and API logic
-│ ├── static/ # Frontend assets (CSS, JS)
-│ ├── templates/ # HTML templates (Jinja2)
-│ ├── Dockerfile # Docker build configuration
-│ ├── docker-compose.yml # Docker services config
-│ └── requirements.txt # Python dependencies
-├── .git/ # Git repo
-├── .venv/ # Python virtual environment (optional)
-└── README.md # Project documentation
-'''
+│   ├── blockchain.py         # Core blockchain and API logic
+│   ├── static/               # Frontend assets (CSS, JS)
+│   ├── templates/            # HTML templates (Jinja2)
+│   ├── Dockerfile            # Docker build configuration
+│   ├── docker-compose.yml    # Docker services config
+│   └── requirements.txt      # Python dependencies
+├── .git/                     # Git repo
+├── .venv/                    # Python virtual environment (optional)
+└── README.md                 # Project documentation
+```
 
 
 ---
