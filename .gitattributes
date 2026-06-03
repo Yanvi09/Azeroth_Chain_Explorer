@@ -1,0 +1,3 @@
+templates/* linguist-documentation=true
+static/* linguist-documentation=true
+*.html linguist-documentation=true
